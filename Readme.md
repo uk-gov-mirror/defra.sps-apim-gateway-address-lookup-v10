@@ -153,10 +153,9 @@ sequenceDiagram
 
     Central->>GH: Push to central repo (develop/master)
     GH-->>ADO: Trigger pipeline (service connection DEFRA)
-    ADO->>ADO: Detect-ChangedProjects.ps1 (scope to apis/address-lookup)
     ADO->>...: Deploy per environment as per branch rules
-
 ```
+
 ## Local Validation
 ```powershell
 pwsh ./scripts/Validate-OpenApi.ps1 -SpecPath ./apis/address-lookup/api-definition/openapi.yaml
