@@ -1,4 +1,4 @@
-# sps-apim-gateway-address-lookup
+# sps-apim-gateway-address-lookup (Address Lookup v10)
 
 > ⚠️ **This repository contains under-development code and is used for self-service development purposes.**
 
@@ -15,19 +15,23 @@ It follows the Shared Platform DevOps patterns used by the team:
 
 ## Repository Structure
 ```
-├─ apis/
-│  └─ address-lookup/
-│     ├─ api-definition/
-│     ├─ policies/
-│     ├─ products/
-│     ├─ named-values/
-│     ├─ revisions/
-│     └─ README.md
-├─ environments/
-├─ scripts/
-├─ pipeline/
+SPS-APIM-GATEWAY-ADDRESS-LOOKUP-V10/
 ├─ .github/
-└─ README.md
+│  └─ workflows/                # GitHub Actions workflows (optional CI checks)
+├─ external/
+│  └─ base/
+│     ├─ apis/                  # External-facing API definitions
+│     ├─ named values/          # Named values for external APIs
+│     ├─ products/              # External products configuration
+│     └─ version sets/          # External API version sets
+├─ internal/
+│  └─ base/
+│     ├─ apis/                  # Internal-facing API definitions
+│     ├─ named values/          # Named values for internal APIs
+│     ├─ products/              # Internal products configuration
+│     └─ version sets/          # Internal API version sets
+├─ LICENCE                      # Open Government Licence v3
+└─ Readme.md                    # Project documentation
 ```
 
 ## Quick Start
