@@ -2,56 +2,25 @@ name: Validate APIM Structure
 
 on:
   pull_request:
-    branches: [ master, develop ]
+    branches:
+      - master
+      - develop
 
 jobs:
   validate-apim-structure:
     runs-on: windows-latest
-    permissions:
-      contents: read
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Run APIM Validation check
-        id: validate
         shell: pwsh
         run: |
-          # Inputs
-          $root    = "${{ github.workspace }}"
-          $parents = @('external','internal')
-          $envs    = @('base')
+          $RootPath = "${{ github.workspace }}"
+          $ApiName = "sample-api"  # Replace with dynamic detection if needed
+          $ParentFolders = @("external", "internal")
+          $Environments = @("base")
 
-          # Run and capture output (still prints to log)
-          $log = Join-Path $env:RUNNER_TEMP 'apim-validate.log'
-          pwsh -File .\scripts\Validate-APIMStructure.ps1 `
-            -RootPath $root `
-            -ParentFolders $parents `
-            -Environments $envs 2>&1 | Tee-Object -FilePath $log
-          $code = $LASTEXITCODE
-
-          # Build a minimal Markdown summary (no complex here-strings)
-          $icon  = if ($code -eq 0) { '✔️' } else { '❌' }
-          $lines = @()
-          $lines += "# $icon APIM Validation"
-          $lines += "* **Root**: $root"
-          $lines += "* **Exit Code**: $code"
-          $lines += ""
-          $lines += "## Console output (first 200 lines)"
-          $lines += "```text"
-          $lines += (Get-Content $log -TotalCount 200)
-          $lines += "```"
-          $lines -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-
-          # Expose exit code to next step and return success so the summary is uploaded
-          "exit_code=$code" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-          exit 0
-
-      - name: Fail job if validation failed
-        if: steps.validate.outputs.exit_code != '0'
-        shell: pwsh
-        run: |
-          $code = '${{ steps.validate.outputs.exit_code }}'
-          Write-Output "::error::APIM validation failed with exit code $code"
-          exit 1
+          # Execute external script
+          .\scripts\Validate-APIMStructure.ps1 -RootPath $RootPath -ParentFolders $ParentFolders -Environments $Environments -ApiName $ApiName
