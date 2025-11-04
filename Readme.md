@@ -180,7 +180,7 @@ sequenceDiagram
 
 ## Local Validation
 ```powershell
-pwsh ./scripts/Validate-OpenApi.ps1 -SpecPath ./apis/address-lookup/api-definition/openapi.yaml
+.\scripts\Validate-APIMStructure.ps1 -RootPath . -Environments base
 ```
 
 ## Contacts
