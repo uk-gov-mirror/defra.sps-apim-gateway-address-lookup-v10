@@ -24,3 +24,9 @@ jobs:
 
           # Execute external script
           .\scripts\Validate-APIMStructure.ps1 -RootPath $RootPath -ParentFolders $ParentFolders -Environments $Environments -ApiName $ApiName
+
+           $custom = "### 🔎 APIM Validation — `${{ github.repository }}`  `n* PR: #${{ github.event.pull_request.number }} — ${{ github.event.pull_request.title }}`n* Commit: ${{ github.sha }}`n* Result: " + ($(if($code -eq 0){'✔️ Passed'} else {'❌ Failed'}))
+              $custom | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+
+              "exit_code=$code" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+              exit 0
