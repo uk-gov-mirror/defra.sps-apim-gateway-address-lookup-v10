@@ -14,7 +14,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Run APIM Validation Script
+      - name: Run APIM Validation check
         shell: pwsh
         run: |
           $RootPath = "${{ github.workspace }}"
