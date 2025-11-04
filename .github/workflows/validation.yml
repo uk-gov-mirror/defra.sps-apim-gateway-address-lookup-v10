@@ -38,3 +38,4 @@ jobs:
           $code = '${{ steps.validate.outputs.exit_code }}'
           Write-Output "::error::APIM validation failed with exit code $code"
           exit 1
+
