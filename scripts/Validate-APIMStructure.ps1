@@ -158,11 +158,11 @@ foreach ($parent in $ParentFolders) {
 
 # Final result
 if ($Errors.Count -gt 0) {
-    $err  = $Errors.Count
-    Write-Host "`nValidation FAILED. $err Issues found:" -ForegroundColor Red
-    $Errors | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+    $err = $Errors.Count
+    Write-Host "`nValidation FAILED. $err issue(s) found ❌:" -ForegroundColor Red
+    $Errors | ForEach-Object { Write-Host "$failIcon $_" -ForegroundColor Red }
     exit 1
 } else {
-    Write-Host "`nValidation PASSED. All checks successful." -ForegroundColor Green
+    Write-Host "`nValidation PASSED. All checks successful ✅." -ForegroundColor Green
     exit 0
 }
