@@ -1,0 +1,26 @@
+name: Validate APIM Structure
+
+on:
+  pull_request:
+    branches:
+      - master
+      - develop
+
+jobs:
+  validate-apim-structure:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Run APIM Validation Script
+        shell: pwsh
+        run: |
+          $RootPath = "${{ github.workspace }}"
+          $ApiName = "sample-api"  # Replace with dynamic detection if needed
+          $ParentFolders = @("external", "internal")
+          $Environments = @("base")
+
+          # Execute external script
+          .\scripts\Validate-APIMStructure.ps1 -RootPath $RootPath -ParentFolders $ParentFolders -Environments $Environments -ApiName $ApiName
