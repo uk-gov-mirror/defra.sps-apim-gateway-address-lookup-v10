@@ -2,24 +2,50 @@ name: Validate APIM Structure
 
 on:
   pull_request:
-    branches:
-      - master
-      - develop
+    branches: [ master, develop ]
 
 jobs:
   validate-apim-structure:
     runs-on: windows-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Run APIM Validation check
+        id: validate
         shell: pwsh
         run: |
-          $RootPath = "${{ github.workspace }}"
-          $ParentFolders = @("external", "internal")
-          $Environments = @("base")
+          # Inputs
+          $root = "${{ github.workspace }}"
+          $parents = @('external','internal')
+          $envs = @('base')
 
-          # Execute external script
-          .\scripts\Validate-APIMStructure.ps1 -RootPath $RootPath -ParentFolders $ParentFolders -Environments $Environments
+          # Grouped log (improves Actions log readability)
+          Write-Output '::group::Run APIM validation'
+          # Run and capture *all* output to a file, while still showing it in the log
+          $logFile = Join-Path $env:RUNNER_TEMP 'apim-validate.log'
+          pwsh -File .\scripts\Validate-APIMStructure.ps1 `
+            -RootPath $root `
+            -ParentFolders $parents `
+            -Environments $envs 2>&1 | Tee-Object -FilePath $logFile
+          $exit = $LASTEXITCODE
+          Write-Output '::endgroup::'
+
+          # Minimal Markdown summary (always written)
+          $icon  = if ($exit -eq 0) { '✔️' } else { '❌' }
+          $title = if ($exit -eq 0) { 'APIM Validation PASSED' } else { 'APIM Validation FAILED' }
+          $md = @"
+# $icon $title
+* **Root**: $root
+* **Exit Code**: $exit
+
+## Console output (first 200 lines)
+```text
+$(
+  # Show the first 200 lines so the Summary stays readable.
+  # You can swap to -Tail 200 to show the end of the log instead.
+  (Get-Content $logFile -TotalCount 200) -join "`n"
+)
