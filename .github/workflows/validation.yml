@@ -18,9 +18,8 @@ jobs:
         shell: pwsh
         run: |
           $RootPath = "${{ github.workspace }}"
-          $ApiName = "sample-api"  # Replace with dynamic detection if needed
           $ParentFolders = @("external", "internal")
           $Environments = @("base")
 
           # Execute external script
-          .\scripts\Validate-APIMStructure.ps1 -RootPath $RootPath -ParentFolders $ParentFolders -Environments $Environments -ApiName $ApiName
+          .\scripts\Validate-APIMStructure.ps1 -RootPath $RootPath -ParentFolders $ParentFolders -Environments $Environments
