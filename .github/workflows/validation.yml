@@ -30,3 +30,11 @@ jobs:
 
               "exit_code=$code" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
               exit 0
+
+      - name: Fail job if validation failed
+        if: steps.validate.outputs.exit_code != '0'
+        shell: pwsh
+        run: |
+          $code = '${{ steps.validate.outputs.exit_code }}'
+          Write-Output "::error::APIM validation failed with exit code $code"
+          exit 1
