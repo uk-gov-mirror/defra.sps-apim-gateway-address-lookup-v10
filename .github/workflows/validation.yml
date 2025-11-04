@@ -15,18 +15,38 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Run APIM Validation check
+        id: validate                    # <-- REQUIRED to read outputs later
         shell: pwsh
         run: |
-          $RootPath = "${{ github.workspace }}"
-          $ApiName = "sample-api"  # Replace with dynamic detection if needed
-          $ParentFolders = @("external", "internal")
-          $Environments = @("base")
+          $root = "${{ github.workspace }}"
+          $parents = @('external','internal')
+          $envs = @('base')
 
-          # Execute external script
-          .\scripts\Validate-APIMStructure.ps1 -RootPath $RootPath -ParentFolders $ParentFolders -Environments $Environments -ApiName $ApiName
+          # run the script
+          pwsh -File .\scripts\Validate-APIMStructure.ps1 `
+            -RootPath $root `
+            -ParentFolders $parents `
+            -Environments $envs
+          $code = $LASTEXITCODE         # <-- CAPTURE the exit code
 
-           $custom = "### 🔎 APIM Validation — `${{ github.repository }}`  `n* PR: #${{ github.event.pull_request.number }} — ${{ github.event.pull_request.title }}`n* Commit: ${{ github.sha }}`n* Result: " + ($(if($code -eq 0){'✔️ Passed'} else {'❌ Failed'}))
+          # write summary
+          $custom = @"
+          ### 🔎 APIM Validation — `${{ github.repository }}`
+          * PR: #${{ github.event.pull_request.number }} — ${{ github.event.pull_request.title }}
+          * Commit: `${{ github.sha }}`
+          * Result: $(if($code -eq 0){'✔️ Passed'} else {'❌ Failed'})
+          "@
               $custom | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
 
+              # expose the code as a step output
               "exit_code=$code" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-              exit $code
+
+              # DO NOT fail here; let the next step decide
+              exit 0
+      - name: Fail job if validation failed
+        if: steps.validate.outputs.exit_code != '0'
+        shell: pwsh
+        run: |
+          $code = '${{ steps.validate.outputs.exit_code }}'
+          Write-Output "::error::APIM validation failed with exit code $code"
+          exit 1
