@@ -172,3 +172,16 @@ if ($Errors.Count -gt 0) {
     Write-Host "`nValidation PASSED. All checks successful ✅." -ForegroundColor Green
     exit 0
 }
+
+# Build summary for GitHub Actions UI
+$summary = @"
+## 🔍 APIM Validation Summary
+* Status: $status
+* Checked Folders: $($ParentFolders -join ', ')
+* Environments: $($Environments -join ', ')
+
+### Details:
+$($errors -join "`n")
+"@
+
+$summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8

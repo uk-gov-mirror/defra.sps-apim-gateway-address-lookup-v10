@@ -79,7 +79,8 @@ jobs:
 
           "emissions=$Emissions" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-      - name: Post Sustainability Report to PR
+      - name: Post Report to PR
+        if: always()
         uses: peter-evans/create-or-update-comment@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
