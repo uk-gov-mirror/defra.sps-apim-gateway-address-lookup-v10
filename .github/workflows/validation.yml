@@ -15,34 +15,32 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Run APIM Validation check
-        id: validate                    # <-- REQUIRED to read outputs later
+        id: validate
         shell: pwsh
         run: |
           $root = "${{ github.workspace }}"
           $parents = @('external','internal')
           $envs = @('base')
 
-          # run the script
+          # Run validation script
           pwsh -File .\scripts\Validate-APIMStructure.ps1 `
             -RootPath $root `
             -ParentFolders $parents `
             -Environments $envs
-          $code = $LASTEXITCODE         # <-- CAPTURE the exit code
+          $code = $LASTEXITCODE
 
-          # write summary
+          # Write summary
           $custom = @"
           ### 🔎 APIM Validation — `${{ github.repository }}`
           * PR: #${{ github.event.pull_request.number }} — ${{ github.event.pull_request.title }}
           * Commit: `${{ github.sha }}`
           * Result: $(if($code -eq 0){'✔️ Passed'} else {'❌ Failed'})
           "@
-              $custom | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          $custom | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
 
-              # expose the code as a step output
-              "exit_code=$code" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "exit_code=$code" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          exit 0
 
-              # DO NOT fail here; let the next step decide
-              exit 0
       - name: Fail job if validation failed
         if: steps.validate.outputs.exit_code != '0'
         shell: pwsh
@@ -50,3 +48,28 @@ jobs:
           $code = '${{ steps.validate.outputs.exit_code }}'
           Write-Output "::error::APIM validation failed with exit code $code"
           exit 1
+
+      # ✅ Add Carbon Metrics Calculation
+      - name: Calculate Carbon Metrics (SCI Formula)
+        shell: pwsh
+        run: |
+          # Simulate CPU and RAM usage (replace with real metrics if needed)
+          $CPUTimeSec = (Get-Process | Measure-Object CPU -Sum).Sum
+          $RAMMB = (Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize / 1024
+
+          # Estimate energy (simplified formula)
+          $EnergyKWh = [math]::Round(($CPUTimeSec * 0.0000003) + ($RAMMB * 0.0000001), 6)
+
+          # Carbon intensity (UK avg ~475 gCO₂/kWh)
+          $CarbonIntensity = 475
+          $Emissions = [math]::Round($EnergyKWh * $CarbonIntensity, 2)
+
+          # Write summary to GitHub Step Summary
+          $carbonSummary = @"
+          ### 🌱 Carbon Metrics
+          * Energy Consumed: $EnergyKWh kWh
+          * Estimated CO₂ Emissions: $Emissions g
+          * CPU Time: $CPUTimeSec sec
+          * RAM Usage: $RAMMB MB
+          "@
+          $carbonSummary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
