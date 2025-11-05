@@ -3,6 +3,11 @@ param(
     [string[]]$ParentFolders = @("external", "internal"),
     [string[]]$Environments = @("base", "dev", "test", "pre")
 )
+
+# Convert comma-separated strings to arrays
+$ParentFolders = $ParentFolders -split ','
+$Environments = $Environments -split ','
+
 Write-Host "DEBUG: ParentFolders = $($ParentFolders -join ', ')"
 Write-Host "DEBUG: Environments = $($Environments -join ', ')"
 # Define required folders and files
