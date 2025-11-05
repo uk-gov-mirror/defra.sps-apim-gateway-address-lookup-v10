@@ -189,6 +189,6 @@ sequenceDiagram
 - **Development team:** GIO Shared platform - Integration team
 
 ## License
-This repository uses the [Open Governmentnalarchives.gov.uk/doc/open-government-licence/version/3.
+This repository uses the [Open Governmentnalarchives.gov.uk/doc/open-government-licence/version/3](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/).
 
 > Contains public sector information licensed under the Open Government Licence v3.
