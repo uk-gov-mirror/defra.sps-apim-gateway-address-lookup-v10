@@ -1,0 +1,8 @@
+{
+  "properties": {
+    "displayName": "EPR OAuth Product",
+    "description": "EPR Product",
+    "state": "published",
+    "subscriptionRequired": false
+  }
+}

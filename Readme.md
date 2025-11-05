@@ -180,7 +180,7 @@ sequenceDiagram
 
 ## Local Validation
 ```powershell
-pwsh ./scripts/Validate-OpenApi.ps1 -SpecPath ./apis/address-lookup/api-definition/openapi.yaml
+.\scripts\Validate-APIMStructure.ps1 -RootPath . -Environments base
 ```
 
 ## Contacts
@@ -189,6 +189,6 @@ pwsh ./scripts/Validate-OpenApi.ps1 -SpecPath ./apis/address-lookup/api-definiti
 - **Development team:** GIO Shared platform - Integration team
 
 ## License
-This repository uses the [Open Governmentnalarchives.gov.uk/doc/open-government-licence/version/3.
+This repository uses the [Open Governmentnalarchives.gov.uk/doc/open-government-licence/version/3](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/).
 
 > Contains public sector information licensed under the Open Government Licence v3.

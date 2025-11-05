@@ -1,4 +1,4 @@
-name: Validate APIM Structure
+name: Validate APIM Structure & Carbon Metrics
 
 on:
   pull_request:
@@ -14,13 +14,79 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Run APIM Validation Script
+      - name: Run APIM Validation check
+        id: validate
         shell: pwsh
         run: |
-          $RootPath = "${{ github.workspace }}"
-          $ApiName = "sample-api"  # Replace with dynamic detection if needed
-          $ParentFolders = @("external", "internal")
-          $Environments = @("base")
+          $root = "${{ github.workspace }}"
+          $parents = @('external','internal')
+          $envs = @('base')
 
-          # Execute external script
-          .\scripts\Validate-APIMStructure.ps1 -RootPath $RootPath -ParentFolders $ParentFolders -Environments $Environments -ApiName $ApiName
+          pwsh -File .\scripts\Validate-APIMStructure.ps1 `
+            -RootPath $root `
+            -ParentFolders $parents `
+            -Environments $envs
+          $code = $LASTEXITCODE
+
+          $result = if ($code -eq 0) { '✔️ Passed' } else { '❌ Failed' }
+          "result=$result" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "exit_code=$code" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Calculate Carbon Metrics (SCI Formula)
+        id: carbon
+        shell: pwsh
+        run: |
+          $CPUTimeSec = (Get-Process | Measure-Object CPU -Sum).Sum
+          $RAMMB = (Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize / 1024
+          $GPUName = (Get-CimInstance Win32_VideoController).Name
+          $GPUStatus = (Get-CimInstance Win32_VideoController).Status
+
+          $EnergyKWh = [math]::Round(($CPUTimeSec * 0.0000003) + ($RAMMB * 0.0000001), 6)
+          $CarbonIntensity = 475
+          $Emissions = [math]::Round($EnergyKWh * $CarbonIntensity, 2)
+
+          $AnnualImpact = [math]::Round(($Emissions * 10000 * 365) / 1000, 2)
+          $CostEstimate = [math]::Round($EnergyKWh * 0.15, 4)
+
+          $remediation = ""
+          if ($Emissions -gt 50) { $remediation += "- Reduce compute-heavy logic or move to renewable region.`n" }
+          else { $remediation += "- No remediation needed.`n" }
+
+          $report = @"
+          ## 🔎 APIM Validation Summary
+          * Result: ${{ steps.validate.outputs.result }}
+
+          ## 🌱 Carbon Metrics Report
+          * Energy Consumed: $EnergyKWh kWh
+          * Estimated CO₂ Emissions: $Emissions g
+          * CPU Time: $CPUTimeSec sec | RAM: $RAMMB MB | GPU: $GPUName ($GPUStatus)
+          * Carbon Intensity: $CarbonIntensity gCO₂/kWh
+
+          ### 📊 Business Impact
+          * Projected Annual Impact: ~${AnnualImpact} kg CO₂ (10k runs/day)
+          * Cost Estimate: £$CostEstimate/year
+          * Target: <10 g/run
+
+          ### 🔧 Remediation Suggestions
+          $remediation
+          "@
+
+          "report<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
+          $report | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+          "emissions=$Emissions" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Post Sustainability Report to PR
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: ${{ steps.carbon.outputs.report }}
+
+      - name: Add sustainability-warning label
+        if: ${{ steps.carbon.outputs.emissions > 50 }}
+        uses: actions-ecosystem/action-add-labels@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          labels: sustainability-warning
