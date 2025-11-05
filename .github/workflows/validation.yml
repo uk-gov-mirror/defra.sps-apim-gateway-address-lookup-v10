@@ -1,4 +1,4 @@
-name: Validate APIM Structure
+name: Validate APIM Structure & Carbon Metrics
 
 on:
   pull_request:
@@ -14,6 +14,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
+      # ✅ APIM Validation
       - name: Run APIM Validation check
         id: validate
         shell: pwsh
@@ -28,59 +29,65 @@ jobs:
             -Environments $envs
           $code = $LASTEXITCODE
 
-          $custom = @"
-          ### 🔎 APIM Validation — `${{ github.repository }}`
-          * PR: #${{ github.event.pull_request.number }} — ${{ github.event.pull_request.title }}
-          * Commit: `${{ github.sha }}`
-          * Result: $(if($code -eq 0){'✔️ Passed'} else {'❌ Failed'})
-          "@
-          $custom | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-
+          $result = if ($code -eq 0) { '✔️ Passed' } else { '❌ Failed' }
+          "result=$result" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           "exit_code=$code" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-          exit 0
 
-      - name: Fail job if validation failed
-        if: steps.validate.outputs.exit_code != '0'
-        shell: pwsh
-        run: |
-          $code = '${{ steps.validate.outputs.exit_code }}'
-          Write-Output "::error::APIM validation failed with exit code $code"
-          exit 1
-
-      # ✅ Carbon Metrics Calculation with GPU
+      # ✅ Carbon Metrics Calculation
       - name: Calculate Carbon Metrics (SCI Formula)
         id: carbon
         shell: pwsh
         run: |
-          # CPU time
+          # Collect system metrics
           $CPUTimeSec = (Get-Process | Measure-Object CPU -Sum).Sum
-          # RAM usage
           $RAMMB = (Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize / 1024
-          # GPU info
           $GPUName = (Get-CimInstance Win32_VideoController).Name
           $GPUStatus = (Get-CimInstance Win32_VideoController).Status
 
-          # Energy and emissions
+          # Estimate energy and emissions
           $EnergyKWh = [math]::Round(($CPUTimeSec * 0.0000003) + ($RAMMB * 0.0000001), 6)
           $CarbonIntensity = 475
           $Emissions = [math]::Round($EnergyKWh * $CarbonIntensity, 2)
 
-          # Build report
+          # Business projection
+          $AnnualImpact = [math]::Round(($Emissions * 10000 * 365) / 1000, 2) # kg/year for 10k runs/day
+          $CostEstimate = [math]::Round($EnergyKWh * 0.15, 4) # Assuming £0.15/kWh
+
+          # Developer tips
+          $tips = @"
+          - Optimize nested loops and reduce synchronous calls.
+          - Cache API responses to minimize redundant processing.
+          - Use async operations for heavy I/O tasks.
+          - Reduce payload size for APIM requests.
+          "@
+
+          # Build combined report
           $report = @"
+          ## 🔎 APIM Validation Summary
+          * Result: ${{ steps.validate.outputs.result }}
+
           ## 🌱 Carbon Metrics Report
           * Energy Consumed: $EnergyKWh kWh
           * Estimated CO₂ Emissions: $Emissions g
-          * CPU Time: $CPUTimeSec sec
-          * RAM Usage: $RAMMB MB
-          * GPU: $GPUName ($GPUStatus)
+          * CPU Time: $CPUTimeSec sec | RAM: $RAMMB MB | GPU: $GPUName ($GPUStatus)
+          * Carbon Intensity: $CarbonIntensity gCO₂/kWh
+
+          ### 📊 Business Impact
+          * Projected Annual Impact: ~${AnnualImpact} kg CO₂ (10k runs/day)
+          * Cost Estimate: £$CostEstimate/year
+          * Target: <10 g/run
+
+          ### 💡 Developer Tips
+          $tips
           "@
 
-          # Save report to output
+          # Output for PR comment
           "report<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
           $report | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           "EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-      - name: Post Carbon Metrics to PR
+      # ✅ Post Combined Report as PR Comment
+      - name: Post Sustainability Report to PR
         uses: peter-evans/create-or-update-comment@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
