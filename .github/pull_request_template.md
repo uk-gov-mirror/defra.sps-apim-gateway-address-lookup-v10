@@ -1,4 +1,4 @@
-## 📦 APIM Change Summary
+# 📦 APIM Change Summary
 
 - [ ] New API added
 - [ ] Existing API updated
@@ -8,19 +8,8 @@
 
 ## ✅ Validation Checklist
 
-- [ ] APIM structure validated using `Validate-APIMStructure.ps1`
-
-## 📊 Carbon Metrics Summary (auto-filled by workflow)
-
-> _This section will be auto-populated by the GitHub Action._
+- [x] APIM structure validated using `Validate-APIMStructure.ps1`
 
 ## 🔍 Additional Notes
 
 _Include any context, screenshots, or links to related issues or discussions._
-
----
-
-### 📁 Related Issues / Tickets
-
-Closes #___  
-Relates to #___

@@ -4,6 +4,10 @@ param(
     [string[]]$Environments = @("base", "dev", "test", "pre")
 )
 
+# Convert comma-separated strings to arrays
+$ParentFolders = $ParentFolders -split ','
+$Environments = $Environments -split ','
+
 # Define required folders and files
 $RequiredStructure = @{
     "apis" = @("apiInformation.json", "Specification.yaml", "Policy.xml")
@@ -12,6 +16,7 @@ $RequiredStructure = @{
     "named values" = @("namedValueInformation.json")
 }
 $Errors = @()
+$SummaryTable = @()
 # --- Validation Functions ---
 function Validate-NestedJsonFields {
     param($filePath, $nestedFields)
@@ -96,21 +101,25 @@ foreach ($parent in $ParentFolders) {
         foreach ($folder in $RequiredStructure.Keys) {
             $folderPath = Join-Path $RootPath "$parent/$env/$folder"
 
-            # Check folder existence
+            # Always add a row for folder check
             if (-Not (Test-Path $folderPath)) {
                 $Errors += "Missing folder: $folderPath"
+                $SummaryTable += "| $parent | $env | $folder | ❌ Missing folder |"
                 Write-Host "❌ Folder missing: $folderPath" -ForegroundColor Red
             } else {
                 Write-Host "✅ Folder exists: $folderPath" -ForegroundColor Green
+                $SummaryTable += "| $parent | $env | $folder | ✅ Folder exists |"
 
                 # Check mandatory files inside folder
                 foreach ($file in $RequiredStructure[$folder]) {
                     $filePath = Join-Path $folderPath $file
                     if (-Not (Test-Path $filePath)) {
                         $Errors += "Missing file: $filePath"
+                        $SummaryTable += "| $parent | $env | $folder | ❌ Missing file: $file |"
                         Write-Host "❌ File missing: $filePath" -ForegroundColor Red
                     } else {
                         Write-Host "✅ File exists: $filePath" -ForegroundColor Green
+                        $SummaryTable += "| $parent | $env | $folder | ✅ $file |"
 
                         # Content validation based on file type
                         switch -Wildcard ($file) {
@@ -120,33 +129,57 @@ foreach ($parent in $ParentFolders) {
                                     "properties.isCurrent","properties.displayName","properties.protocols",
                                     "properties.serviceUrl","properties.subscriptionRequired"
                                 )
-                                if ($result) { $Errors += $result; Write-Host "❌ $result" -ForegroundColor Red }
+                                if ($result) {
+                                    $Errors += $result
+                                    $SummaryTable += "| $parent | $env | $folder | ❌ $result |"
+                                    Write-Host "❌ $result" -ForegroundColor Red
+                                }
                             }
                             "Policy.xml" {
                                 $result = Validate-PolicyXml $filePath
-                                if ($result) { $Errors += $result; Write-Host "❌ $result" -ForegroundColor Red }
+                                if ($result) {
+                                    $Errors += $result
+                                    $SummaryTable += "| $parent | $env | $folder | ❌ $result |"
+                                    Write-Host "❌ $result" -ForegroundColor Red
+                                }
                             }
                             "Specification.yaml" {
                                 $result = Validate-YamlOpenAPI $filePath
-                                if ($result) { $Errors += $result; Write-Host "❌ $result" -ForegroundColor Red }
+                                if ($result) {
+                                    $Errors += $result
+                                    $SummaryTable += "| $parent | $env | $folder | ❌ $result |"
+                                    Write-Host "❌ $result" -ForegroundColor Red
+                                }
                             }
                             "namedValueInformation.json" {
                                 $result = Validate-NestedJsonFields $filePath @(
                                     "properties.displayName","properties.secret","properties.tags","properties.value"
                                 )
-                                if ($result) { $Errors += $result; Write-Host "❌ $result" -ForegroundColor Red }
+                                if ($result) {
+                                    $Errors += $result
+                                    $SummaryTable += "| $parent | $env | $folder | ❌ $result |"
+                                    Write-Host "❌ $result" -ForegroundColor Red
+                                }
                             }
                             "productInformation.json" {
                                 $result = Validate-NestedJsonFields $filePath @(
                                     "properties.displayName","properties.description","properties.state","properties.subscriptionRequired"
                                 )
-                                if ($result) { $Errors += $result; Write-Host "❌ $result" -ForegroundColor Red }
+                                if ($result) {
+                                    $Errors += $result
+                                    $SummaryTable += "| $parent | $env | $folder | ❌ $result |"
+                                    Write-Host "❌ $result" -ForegroundColor Red
+                                }
                             }
                             "versionSetInformation.json" {
                                 $result = Validate-NestedJsonFields $filePath @(
                                     "properties.displayName","properties.versioningScheme"
                                 )
-                                if ($result) { $Errors += $result; Write-Host "❌ $result" -ForegroundColor Red }
+                                if ($result) {
+                                    $Errors += $result
+                                    $SummaryTable += "| $parent | $env | $folder | ❌ $result |"
+                                    Write-Host "❌ $result" -ForegroundColor Red
+                                }
                             }
                         }
                     }
@@ -156,13 +189,44 @@ foreach ($parent in $ParentFolders) {
     }
 }
 
-# Final result
+# --- Build GitHub Actions Summary ---
+$summaryHeader = @"
+## 🔍 APIM Validation Summary
+Checked Folders: $($ParentFolders -join ', ')
+Environments: $($Environments -join ', ')
+
+| Parent | Environment | Folder | Status |
+|--------|-------------|--------|--------|
+
+"@
+
+$summaryBody = ($SummaryTable -join "`n")
+
 if ($Errors.Count -gt 0) {
-    $err = $Errors.Count
-    Write-Host "`nValidation FAILED. $err issue(s) found ❌:" -ForegroundColor Red
-    $Errors | ForEach-Object { Write-Host "$failIcon $_" -ForegroundColor Red }
-    exit 1
+    $status = "❌ Validation FAILED. $($Errors.Count) issue(s) found."
+    $summaryFooter = "`n### Issues:`n" + ($Errors -join "`n")
+    $exitCode = 1
 } else {
-    Write-Host "`nValidation PASSED. All checks successful ✅." -ForegroundColor Green
-    exit 0
+    $status = "✅ Validation PASSED. All checks successful."
+    $summaryFooter = ""
+    $exitCode = 0
 }
+
+$fullSummary = "$summaryHeader$summaryBody`n`n$status`n$summaryFooter"
+
+# Write summary for GitHub Actions or local preview
+if ($env:GITHUB_STEP_SUMMARY) {
+    $fullSummary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
+} else {
+    Write-Host "`n--- GitHub Summary (Local Preview) ---`n$fullSummary"
+}
+
+# Outputs for workflow
+if ($env:GITHUB_OUTPUT) {
+    "result=$status" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+    "exit_code=$exitCode" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+} else {
+    Write-Host "`nOutputs:`nresult=$status`nexit_code=$exitCode"
+}
+
+exit $exitCode

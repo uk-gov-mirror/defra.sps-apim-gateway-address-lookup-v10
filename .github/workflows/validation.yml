@@ -13,19 +13,21 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
-
+      
+      - name: Ensure full repo checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
       - name: Run APIM Validation check
         id: validate
         shell: pwsh
-        run: |
-          $root = "${{ github.workspace }}"
-          $parents = @('external','internal')
-          $envs = @('base')
+        run: |          
+          pwsh -File "${{ github.workspace }}/scripts/Validate-APIMStructure.ps1" `
+            -RootPath "${{ github.workspace }}" `
+            -ParentFolders "external,internal" `
+            -Environments "base"
 
-          pwsh -File .\scripts\Validate-APIMStructure.ps1 `
-            -RootPath $root `
-            -ParentFolders $parents `
-            -Environments $envs
           $code = $LASTEXITCODE
 
           $result = if ($code -eq 0) { '✔️ Passed' } else { '❌ Failed' }
@@ -77,7 +79,7 @@ jobs:
 
           "emissions=$Emissions" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-      - name: Post Sustainability Report to PR
+      - name: Post Report to PR
         uses: peter-evans/create-or-update-comment@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
