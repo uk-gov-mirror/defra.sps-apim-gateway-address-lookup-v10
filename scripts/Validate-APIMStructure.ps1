@@ -3,7 +3,8 @@ param(
     [string[]]$ParentFolders = @("external", "internal"),
     [string[]]$Environments = @("base", "dev", "test", "pre")
 )
-
+Write-Host "DEBUG: ParentFolders = $($ParentFolders -join ', ')"
+Write-Host "DEBUG: Environments = $($Environments -join ', ')"
 # Define required folders and files
 $RequiredStructure = @{
     "apis" = @("apiInformation.json", "Specification.yaml", "Policy.xml")
