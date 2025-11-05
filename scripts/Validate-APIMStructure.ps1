@@ -171,6 +171,7 @@ Environments: $($Environments -join ', ')
 
 | Parent | Environment | Folder | Status |
 |--------|-------------|--------|--------|
+
 "@
 
 $summaryBody = ($SummaryTable -join "`n")
