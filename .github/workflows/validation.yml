@@ -53,23 +53,27 @@ jobs:
       - name: Calculate Carbon Metrics (SCI Formula)
         shell: pwsh
         run: |
-          # Simulate CPU and RAM usage (replace with real metrics if needed)
+          # Get actual CPU time (sum of all processes in seconds)
           $CPUTimeSec = (Get-Process | Measure-Object CPU -Sum).Sum
-          $RAMMB = (Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize / 1024
-
-          # Estimate energy (simplified formula)
-          $EnergyKWh = [math]::Round(($CPUTimeSec * 0.0000003) + ($RAMMB * 0.0000001), 6)
-
+      
+          # Get actual RAM usage in MB
+          $RAMMB = (Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1024
+          $TotalRAMMB = (Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize / 1024
+          $UsedRAMMB = $TotalRAMMB - $RAMMB
+      
+          # Estimate energy (simplified SCI formula)
+          $EnergyKWh = [math]::Round(($CPUTimeSec * 0.0000003) + ($UsedRAMMB * 0.0000001), 6)
+      
           # Carbon intensity (UK avg ~475 gCO₂/kWh)
           $CarbonIntensity = 475
           $Emissions = [math]::Round($EnergyKWh * $CarbonIntensity, 2)
-
+      
           # Write summary to GitHub Step Summary
           $carbonSummary = @"
           ### 🌱 Carbon Metrics
           * Energy Consumed: $EnergyKWh kWh
           * Estimated CO₂ Emissions: $Emissions g
           * CPU Time: $CPUTimeSec sec
-          * RAM Usage: $RAMMB MB
+          * RAM Used: $UsedRAMMB MB / $TotalRAMMB MB
           "@
           $carbonSummary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
