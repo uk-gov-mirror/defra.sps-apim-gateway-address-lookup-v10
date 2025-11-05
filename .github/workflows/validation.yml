@@ -52,24 +52,20 @@ jobs:
         id: carbon
         shell: pwsh
         run: |
-          # CPU time (sum of all processes)
+          # CPU time
           $CPUTimeSec = (Get-Process | Measure-Object CPU -Sum).Sum
-          
           # RAM usage
           $RAMMB = (Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize / 1024
-          
-          # GPU usage (Windows WMI query)
+          # GPU info
           $GPUName = (Get-CimInstance Win32_VideoController).Name
           $GPUStatus = (Get-CimInstance Win32_VideoController).Status
-          
-          # Estimate energy (simplified formula)
+
+          # Energy and emissions
           $EnergyKWh = [math]::Round(($CPUTimeSec * 0.0000003) + ($RAMMB * 0.0000001), 6)
-          
-          # Carbon intensity (UK avg ~475 gCO₂/kWh)
           $CarbonIntensity = 475
           $Emissions = [math]::Round($EnergyKWh * $CarbonIntensity, 2)
-          
-          # Save metrics for PR comment
+
+          # Build report
           $report = @"
           ## 🌱 Carbon Metrics Report
           * Energy Consumed: $EnergyKWh kWh
@@ -78,16 +74,15 @@ jobs:
           * RAM Usage: $RAMMB MB
           * GPU: $GPUName ($GPUStatus)
           "@
-          $report | Out-File -FilePath carbon_report.md -Encoding utf8
-          
-          # Add to GitHub Summary
-          $report | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
 
-      # ✅ Post Carbon Metrics as PR Comment
+          # Save report to output
+          "report<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
+          $report | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
       - name: Post Carbon Metrics to PR
         uses: peter-evans/create-or-update-comment@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           issue-number: ${{ github.event.pull_request.number }}
-          body: |
-            $(cat carbon_report.md)
+          body: ${{ steps.carbon.outputs.report }}
