@@ -53,6 +53,13 @@ jobs:
           $AnnualImpact = [math]::Round(($Emissions * 10000 * 365) / 1000, 2) # kg/year for 10k runs/day
           $CostEstimate = [math]::Round($EnergyKWh * 0.15, 4) # Assuming £0.15/kWh
 
+          # Dynamic remediation suggestions
+          $remediation = ""
+          if ($Emissions -gt 50) { $remediation += "- Reduce compute-heavy logic or move to renewable region.`n" }
+          if ($CPUTimeSec -gt 10) { $remediation += "- Optimize loops and heavy processing.`n" }
+          if ($RAMMB -gt 1024) { $remediation += "- Use streaming or pagination to reduce memory footprint.`n" }
+          if ($GPUName -and $GPUStatus -eq "OK") { $remediation += "- Remove unnecessary GPU dependencies if not used.`n" }
+
           # Build combined report
           $report = @"
           ## 🔎 APIM Validation Summary
@@ -68,12 +75,18 @@ jobs:
           * Projected Annual Impact: ~${AnnualImpact} kg CO₂ (10k runs/day)
           * Cost Estimate: £$CostEstimate/year
           * Target: <10 g/run
+
+          ### 🔧 Remediation Suggestions
+          $remediation
           "@
 
           # Output for PR comment
           "report<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
           $report | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           "EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+          # Output emissions for label logic
+          "emissions=$Emissions" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       # ✅ Post Combined Report as PR Comment
       - name: Post Sustainability Report to PR
@@ -82,3 +95,11 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           issue-number: ${{ github.event.pull_request.number }}
           body: ${{ steps.carbon.outputs.report }}
+
+      # ✅ Apply sustainability-warning label if emissions exceed threshold
+      - name: Add sustainability-warning label
+        if: ${{ steps.carbon.outputs.emissions > 50 }}
+        uses: actions-ecosystem/action-add-labels@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          labels: sustainability-warning
