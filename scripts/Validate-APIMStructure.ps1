@@ -251,6 +251,8 @@ foreach ($journey in $JourneyList) {
 }
 
 # ------- Output summary (GitHub Actions friendly) -------
+$EOL = "`r`n"
+
 $header = @"
 ## 🔎 APIM Validation Summary
 
@@ -261,11 +263,12 @@ Journey | Env | Item | Status
 ------ | --- | ---- | ------
 "@
 
-$body = ($SummaryLines -join "`n")
+# Join rows with CRLF and put a CRLF between the header and the first row
+$body = ($SummaryLines -join $EOL)
 
 if ($Errors.Count -gt 0) {
     $status = "❌ Validation FAILED. $($Errors.Count) issue(s) found."
-    $footer = "### Issues:`n" + ($Errors -join "`n")
+    $footer = "### Issues:$EOL" + ($Errors -join $EOL)
     $exit = 1
 } else {
     $status = "✅ Validation PASSED. All checks successful."
@@ -273,10 +276,13 @@ if ($Errors.Count -gt 0) {
     $exit = 0
 }
 
-$full = "$header$body`n`n$status`n$footer"
+# Ensure clear line breaks:
+$full = $header + $EOL + $body + $EOL + $EOL + $status + $EOL + $footer + $EOL
 
 if ($env:GITHUB_STEP_SUMMARY) {
-    $full | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
+    # UTF-8 without BOM
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($env:GITHUB_STEP_SUMMARY, $full, $utf8NoBom)
 } else {
     Write-Host "`n--- Summary (Local Preview) ---`n$full"
 }
@@ -285,5 +291,4 @@ if ($env:GITHUB_OUTPUT) {
     "result=$status"  | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
     "exit_code=$exit" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 }
-
 if ($FailOnError -and $exit -ne 0) { exit $exit }
