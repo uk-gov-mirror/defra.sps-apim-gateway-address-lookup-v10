@@ -21,11 +21,12 @@ jobs:
           $root = "${{ github.workspace }}"
           $parents = @('external','internal')
           $envs = @('base')
+                    
+          pwsh -File "${{ github.workspace }}/scripts/Validate-APIMStructure.ps1" `
+            -RootPath "${{ github.workspace }}" `
+            -ParentFolders @('external','internal') `
+            -Environments @('base')
 
-          pwsh -File .\scripts\Validate-APIMStructure.ps1 `
-            -RootPath $root `
-            -ParentFolders $parents `
-            -Environments $envs
           $code = $LASTEXITCODE
 
           $result = if ($code -eq 0) { '✔️ Passed' } else { '❌ Failed' }
