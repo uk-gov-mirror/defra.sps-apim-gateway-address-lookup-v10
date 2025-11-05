@@ -186,23 +186,21 @@ if ($Errors.Count -gt 0) {
     $exitCode = 0
 }
 
-$fullSummary = "$summaryHeader`n$summaryBody`n`n$status`n$summaryFooter"
-$fullSummary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
+$fullSummary = "$summaryHeader$summaryBody`n`n$status`n$summaryFooter"
 
-# Also output for downstream steps
-"result=$status" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-"exit_code=$exitCode" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-
-#exit $exitCode
-
-
-# Final result
-if ($Errors.Count -gt 0) {
-    $err = $Errors.Count
-    Write-Host "`nValidation FAILED. $err issue(s) found ❌:" -ForegroundColor Red
-    $Errors | ForEach-Object { Write-Host "$failIcon $_" -ForegroundColor Red }
-    exit 1
+# --- Output for GitHub Actions or Local ---
+if ($env:GITHUB_STEP_SUMMARY) {
+    $fullSummary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
 } else {
-    Write-Host "`nValidation PASSED. All checks successful ✅." -ForegroundColor Green
-    exit 0
+    Write-Host "`n--- GitHub Summary (Local Preview) ---`n$fullSummary"
 }
+
+if ($env:GITHUB_OUTPUT) {
+    "result=$status" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+    "exit_code=$exitCode" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+} else {
+    Write-Host "`nOutputs:`nresult=$status`nexit_code=$exitCode"
+}
+
+exit $exitCode
+

@@ -35,7 +35,6 @@ jobs:
           "exit_code=$code" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Calculate Carbon Metrics (SCI Formula)
-        if: always()
         id: carbon
         shell: pwsh
         run: |
@@ -81,7 +80,6 @@ jobs:
           "emissions=$Emissions" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Post Report to PR
-        if: always()
         uses: peter-evans/create-or-update-comment@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
