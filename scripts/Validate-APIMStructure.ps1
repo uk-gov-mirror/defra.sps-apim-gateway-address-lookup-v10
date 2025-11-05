@@ -163,7 +163,40 @@ foreach ($parent in $ParentFolders) {
 }
 
 
-# --- Build GitHub Actions Summary ---
+
+$SummaryTable = @()
+
+# --- Validation ---
+foreach ($parent in $ParentFolders) {
+    foreach ($env in $Environments) {
+        Write-Host "`nValidating: $parent -> $env"
+        foreach ($folder in $RequiredStructure.Keys) {
+            $folderPath = Join-Path $RootPath "$parent/$env/$folder"
+            if (-Not (Test-Path $folderPath)) {
+                $Errors += "Missing folder: $folderPath"
+                $SummaryTable += "| $parent | $env | $folder | ❌ Missing folder |"
+                Write-Host "❌ Folder missing: $folderPath" -ForegroundColor Red
+            } else {
+                Write-Host "✅ Folder exists: $folderPath" -ForegroundColor Green
+                # Add folder existence row
+                $SummaryTable += "| $parent | $env | $folder | ✅ Folder exists |"
+                foreach ($file in $RequiredStructure[$folder]) {
+                    $filePath = Join-Path $folderPath $file
+                    if (-Not (Test-Path $filePath)) {
+                        $Errors += "Missing file: $filePath"
+                        $SummaryTable += "| $parent | $env | $folder | ❌ Missing file: $file |"
+                        Write-Host "❌ File missing: $filePath" -ForegroundColor Red
+                    } else {
+                        Write-Host "✅ File exists: $filePath" -ForegroundColor Green
+                        $SummaryTable += "| $parent | $env | $folder | ✅ $file |"
+                    }
+                }
+            }
+        }
+    }
+}
+
+# --- Build Summary ---
 $summaryHeader = @"
 ## 🔍 APIM Validation Summary
 Checked Folders: $($ParentFolders -join ', ')
@@ -203,4 +236,3 @@ if ($env:GITHUB_OUTPUT) {
 }
 
 exit $exitCode
-
