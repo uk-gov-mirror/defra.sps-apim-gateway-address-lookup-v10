@@ -162,6 +162,39 @@ foreach ($parent in $ParentFolders) {
     }
 }
 
+
+# --- Build GitHub Actions Summary ---
+$summaryHeader = @"
+## 🔍 APIM Validation Summary
+Checked Folders: $($ParentFolders -join ', ')
+Environments: $($Environments -join ', ')
+
+| Parent | Environment | Folder | Status |
+|--------|-------------|--------|--------|
+"@
+
+$summaryBody = ($SummaryTable -join "`n")
+
+if ($Errors.Count -gt 0) {
+    $status = "❌ Validation FAILED. $($Errors.Count) issue(s) found."
+    $summaryFooter = "`n### Issues:`n" + ($Errors -join "`n")
+    $exitCode = 1
+} else {
+    $status = "✅ Validation PASSED. All checks successful."
+    $summaryFooter = ""
+    $exitCode = 0
+}
+
+$fullSummary = "$summaryHeader`n$summaryBody`n`n$status`n$summaryFooter"
+$fullSummary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
+
+# Also output for downstream steps
+"result=$status" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+"exit_code=$exitCode" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+#exit $exitCode
+
+
 # Final result
 if ($Errors.Count -gt 0) {
     $err = $Errors.Count
