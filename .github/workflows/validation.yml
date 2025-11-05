@@ -14,7 +14,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      # ✅ APIM Validation
       - name: Run APIM Validation check
         id: validate
         shell: pwsh
@@ -33,34 +32,28 @@ jobs:
           "result=$result" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           "exit_code=$code" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-      # ✅ Carbon Metrics Calculation
       - name: Calculate Carbon Metrics (SCI Formula)
         id: carbon
         shell: pwsh
         run: |
-          # Collect system metrics
           $CPUTimeSec = (Get-Process | Measure-Object CPU -Sum).Sum
           $RAMMB = (Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize / 1024
           $GPUName = (Get-CimInstance Win32_VideoController).Name
           $GPUStatus = (Get-CimInstance Win32_VideoController).Status
 
-          # Estimate energy and emissions
           $EnergyKWh = [math]::Round(($CPUTimeSec * 0.0000003) + ($RAMMB * 0.0000001), 6)
           $CarbonIntensity = 475
           $Emissions = [math]::Round($EnergyKWh * $CarbonIntensity, 2)
 
-          # Business projection
-          $AnnualImpact = [math]::Round(($Emissions * 10000 * 365) / 1000, 2) # kg/year for 10k runs/day
-          $CostEstimate = [math]::Round($EnergyKWh * 0.15, 4) # Assuming £0.15/kWh
+          $AnnualImpact = [math]::Round(($Emissions * 10000 * 365) / 1000, 2)
+          $CostEstimate = [math]::Round($EnergyKWh * 0.15, 4)
 
-          # Dynamic remediation suggestions
           $remediation = ""
           if ($Emissions -gt 50) { $remediation += "- Reduce compute-heavy logic or move to renewable region.`n" }
           if ($CPUTimeSec -gt 10) { $remediation += "- Optimize loops and heavy processing.`n" }
           if ($RAMMB -gt 1024) { $remediation += "- Use streaming or pagination to reduce memory footprint.`n" }
           if ($GPUName -and $GPUStatus -eq "OK") { $remediation += "- Remove unnecessary GPU dependencies if not used.`n" }
 
-          # Build combined report
           $report = @"
           ## 🔎 APIM Validation Summary
           * Result: ${{ steps.validate.outputs.result }}
@@ -80,15 +73,12 @@ jobs:
           $remediation
           "@
 
-          # Output for PR comment
           "report<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
           $report | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           "EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-          # Output emissions for label logic
           "emissions=$Emissions" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-      # ✅ Post Combined Report as PR Comment
       - name: Post Sustainability Report to PR
         uses: peter-evans/create-or-update-comment@v3
         with:
@@ -96,7 +86,6 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           body: ${{ steps.carbon.outputs.report }}
 
-      # ✅ Apply sustainability-warning label if emissions exceed threshold
       - name: Add sustainability-warning label
         if: ${{ steps.carbon.outputs.emissions > 50 }}
         uses: actions-ecosystem/action-add-labels@v1
