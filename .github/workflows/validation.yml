@@ -50,9 +50,7 @@ jobs:
 
           $remediation = ""
           if ($Emissions -gt 50) { $remediation += "- Reduce compute-heavy logic or move to renewable region.`n" }
-          if ($CPUTimeSec -gt 10) { $remediation += "- Optimize loops and heavy processing.`n" }
-          if ($RAMMB -gt 1024) { $remediation += "- Use streaming or pagination to reduce memory footprint.`n" }
-          if ($GPUName -and $GPUStatus -eq "OK") { $remediation += "- Remove unnecessary GPU dependencies if not used.`n" }
+          else { $remediation += "- No remediation needed.`n" }
 
           $report = @"
           ## 🔎 APIM Validation Summary
