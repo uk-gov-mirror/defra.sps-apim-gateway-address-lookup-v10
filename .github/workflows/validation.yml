@@ -53,14 +53,6 @@ jobs:
           $AnnualImpact = [math]::Round(($Emissions * 10000 * 365) / 1000, 2) # kg/year for 10k runs/day
           $CostEstimate = [math]::Round($EnergyKWh * 0.15, 4) # Assuming £0.15/kWh
 
-          # Developer tips
-          $tips = @"
-          - Optimize nested loops and reduce synchronous calls.
-          - Cache API responses to minimize redundant processing.
-          - Use async operations for heavy I/O tasks.
-          - Reduce payload size for APIM requests.
-          "@
-
           # Build combined report
           $report = @"
           ## 🔎 APIM Validation Summary
@@ -76,9 +68,6 @@ jobs:
           * Projected Annual Impact: ~${AnnualImpact} kg CO₂ (10k runs/day)
           * Cost Estimate: £$CostEstimate/year
           * Target: <10 g/run
-
-          ### 💡 Developer Tips
-          $tips
           "@
 
           # Output for PR comment
