@@ -14,12 +14,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
       
-      - name: Debug folder structure
-        run: |
-          echo "Listing repo structure..."
-          ls -R
-        shell: bash
-      
       - name: Ensure full repo checkout
         uses: actions/checkout@v3
         with:
@@ -32,7 +26,8 @@ jobs:
           pwsh -File "${{ github.workspace }}/scripts/Validate-APIMStructure.ps1" `
             -RootPath "${{ github.workspace }}" `
             -ParentFolders 'external','internal' `
-            -Environments 'base
+            -Environments 'base'
+
 
           $code = $LASTEXITCODE
 
