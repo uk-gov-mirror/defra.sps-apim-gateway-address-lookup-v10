@@ -23,10 +23,7 @@ jobs:
         id: validate
         shell: pwsh
         run: |          
-          pwsh -File "${{ github.workspace }}/scripts/Validate-APIMStructure.ps1" `
-            -RootPath "${{ github.workspace }}" `
-            -ParentFolders "external,internal" `
-            -Environments "base"
+          pwsh -File "${{ github.workspace }}/scripts/Validate-APIMStructure.ps1" -Journey both -Environment base -FailOnError
 
           $code = $LASTEXITCODE
 

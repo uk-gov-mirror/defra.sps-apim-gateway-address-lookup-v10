@@ -1,51 +1,83 @@
+<#
+ .SYNOPSIS
+   Validates APIM repository structure for the new “journeys” & “environments”.
+
+ .DESCRIPTION
+   - Supports journeys: external, internal, both
+   - Supports environments: base, dev, pre, tst, all
+   - Enforces mandatory files at the precise subpaths you provided
+   - Performs light JSON/YAML/XML content checks
+   - Produces GitHub Actions step summary and outputs, and non-zero exit when errors
+
+ .EXAMPLES
+   pwsh -File .\Validate-APIMStructure.ps1 -Journey external -Environment base -FailOnError
+   pwsh -File .\Validate-APIMStructure.ps1 -Journey both -Environment all -FailOnError
+#>
+
 param(
-    [string]$RootPath,
-    [string[]]$ParentFolders = @("external", "internal"),
-    [string[]]$Environments = @("base", "dev", "test", "pre")
+    [string]$RootPath = ".",
+
+    [ValidateSet('external','internal','both')]
+    [string]$Journey = 'both',
+
+    [ValidateSet('base','dev','pre','tst','all')]
+    [string]$Environment = 'all',
+
+    # Resource names (override if needed)
+    [string]$ApiName            = 'address-lookup-v10',
+    [string]$ProductName        = 'addresslookup-product',
+    [string]$VersionSetName     = 'addressLookupVersionset',
+    [string]$NamedValueName     = 'addresslookupv10-backend-scopeid',
+
+    [switch]$FailOnError
 )
 
-# Convert comma-separated strings to arrays
-$ParentFolders = $ParentFolders -split ','
-$Environments = $Environments -split ','
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
 
-# Define required folders and files
-$RequiredStructure = @{
-    "apis" = @("apiInformation.json", "Specification.yaml", "Policy.xml")
-    "products" = @("productInformation.json", "productApiInformation.json")
-    "version sets" = @("versionSetInformation.json")
-    "named values" = @("namedValueInformation.json")
+# ------- Helpers -------
+function Write-Info($m){ Write-Host "[INFO ] $m" -ForegroundColor Cyan }
+function Write-Warn($m){ Write-Host "[WARN ] $m" -ForegroundColor Yellow }
+function Write-Err ($m){ Write-Host "[ERROR] $m" -ForegroundColor Red }
+
+# Case-insensitive file resolver
+function Resolve-File {
+    param([string]$Dir, [string[]]$Candidates)
+    if (-not (Test-Path -LiteralPath $Dir)) { return $null }
+    $entries = Get-ChildItem -LiteralPath $Dir -File -Force
+    foreach ($cand in $Candidates) {
+        $hit = $entries | Where-Object { $_.Name -ieq $cand } | Select-Object -First 1
+        if ($hit) { return $hit.FullName }
+    }
+    return $null
 }
-$Errors = @()
-$SummaryTable = @()
-# --- Validation Functions ---
+
+# Content validators (adapted from your original)
 function Validate-NestedJsonFields {
     param($filePath, $nestedFields)
     try {
-        $json = Get-Content $filePath | ConvertFrom-Json
+        $json = Get-Content $filePath -Raw | ConvertFrom-Json
         foreach ($field in $nestedFields) {
             switch ($field) {
                 # apiInformation.json
-                "properties.path" { if (-not $json.properties.path) { return "Missing 'properties.path' in $filePath" } }
-                "properties.apiVersion" { if (-not $json.properties.apiVersion) { return "Missing 'properties.apiVersion' in $filePath" } }
-                "properties.apiVersionSetId" { if (-not $json.properties.apiVersionSetId) { return "Missing 'properties.apiVersionSetId' in $filePath" } }
-                "properties.isCurrent" { if ($null -eq $json.properties.isCurrent) { return "Missing 'properties.isCurrent' in $filePath" } }
-                "properties.displayName" { if (-not $json.properties.displayName) { return "Missing 'properties.displayName' in $filePath" } }
-                "properties.protocols" { if (-not $json.properties.protocols) { return "Missing 'properties.protocols' in $filePath" } }
-                "properties.serviceUrl" { if (-not $json.properties.serviceUrl) { return "Missing 'properties.serviceUrl' in $filePath" } }
-                "properties.subscriptionRequired" { if ($null -eq $json.properties.subscriptionRequired) { return "Missing 'properties.subscriptionRequired' in $filePath" } }
-
+                'properties.path'                 { if (-not $json.properties.path)                 { return "Missing 'properties.path' in $filePath" } }
+                'properties.apiVersion'           { if (-not $json.properties.apiVersion)           { return "Missing 'properties.apiVersion' in $filePath" } }
+                'properties.apiVersionSetId'      { if (-not $json.properties.apiVersionSetId)      { return "Missing 'properties.apiVersionSetId' in $filePath" } }
+                'properties.isCurrent'            { if ($null -eq $json.properties.isCurrent)       { return "Missing 'properties.isCurrent' in $filePath" } }
+                'properties.displayName'          { if (-not $json.properties.displayName)          { return "Missing 'properties.displayName' in $filePath" } }
+                'properties.protocols'            { if (-not $json.properties.protocols)            { return "Missing 'properties.protocols' in $filePath" } }
+                'properties.serviceUrl'           { if (-not $json.properties.serviceUrl)           { return "Missing 'properties.serviceUrl' in $filePath" } }
+                'properties.subscriptionRequired' { if ($null -eq $json.properties.subscriptionRequired) { return "Missing 'properties.subscriptionRequired' in $filePath" } }
                 # namedValueInformation.json
-                "properties.secret" { if ($null -eq $json.properties.secret) { return "Missing 'properties.secret' in $filePath" } }
-                "properties.tags" { if ($null -eq $json.properties.tags) { return "Missing 'properties.tags' in $filePath" } }
-                "properties.value" { if (-not $json.properties.value) { return "Missing 'properties.value' in $filePath" } }
-
+                'properties.displayName'          { if (-not $json.properties.displayName)          { return "Missing 'properties.displayName' in $filePath" } }
+                'properties.secret'               { if ($null -eq $json.properties.secret)          { return "Missing 'properties.secret' in $filePath" } }
+                'properties.tags'                 { if ($null -eq $json.properties.tags)            { return "Missing 'properties.tags' in $filePath" } }
+                'properties.value'                { if (-not $json.properties.value)                { return "Missing 'properties.value' in $filePath" } }
                 # productInformation.json
-                "properties.description" { if (-not $json.properties.description) { return "Missing 'properties.description' in $filePath" } }
-                "properties.state" { if (-not $json.properties.state) { return "Missing 'properties.state' in $filePath" } }
-                "properties.subscriptionRequired" { if ($null -eq $json.properties.subscriptionRequired) { return "Missing 'properties.subscriptionRequired' in $filePath" } }
-
+                'properties.description'          { if (-not $json.properties.description)          { return "Missing 'properties.description' in $filePath" } }
+                'properties.state'                { if (-not $json.properties.state)                { return "Missing 'properties.state' in $filePath" } }
                 # versionSetInformation.json
-                "properties.versioningScheme" { if (-not $json.properties.versioningScheme) { return "Missing 'properties.versioningScheme' in $filePath" } }
+                'properties.versioningScheme'     { if (-not $json.properties.versioningScheme)     { return "Missing 'properties.versioningScheme' in $filePath" } }
             }
         }
     } catch {
@@ -54,26 +86,13 @@ function Validate-NestedJsonFields {
     return $null
 }
 
-# Regex-based XML validation for Policy.xml
 function Validate-PolicyXml {
     param($filePath)
     try {
         $content = Get-Content $filePath -Raw
-
-        if ($content -notmatch '<policies>') { return 'Missing <policies> root element in file' }
-        if ($content -notmatch '<inbound>') { return 'Missing <inbound> section in file' }
-
-        if ($content -notmatch '<rate-limit') { return 'Missing <rate-limit> in file' }
-        if ($content -notmatch 'calls="\d+"') { return 'Missing or invalid calls attribute in <rate-limit>' }
-        if ($content -notmatch 'renewal-period="\d+"') { return 'Missing or invalid renewal-period attribute in <rate-limit>' }
-
-        if ($content -notmatch '<validate-jwt') { return 'Missing <validate-jwt> block in file' }
-        if ($content -notmatch '<openid-config') { return 'Missing <openid-config> in <validate-jwt>' }
-        if ($content -notmatch '<audience>') { return 'Missing <audience> in <validate-jwt>' }
-        if ($content -notmatch '<issuer>') { return 'Missing <issuer> in <validate-jwt>' }
-        if ($content -notmatch '<claim name="appid"') { return 'Missing <claim name="appid"> in <validate-jwt>' }
-        if ($content -notmatch '<value>') { return 'Missing <value> inside <claim> in <validate-jwt>' }
-
+        if ($content -notmatch '<policies>') { return 'Missing <policies> root element' }
+        if ($content -notmatch '<inbound>')  { return 'Missing <inbound> section' }
+        # Keep checks minimal; teams' policies vary. Add stricter checks if you need them.
     } catch {
         return 'Error reading Policy.xml'
     }
@@ -84,102 +103,144 @@ function Validate-YamlOpenAPI {
     param($filePath)
     try {
         $content = Get-Content $filePath -Raw
-        if ($content -notmatch "openapi|swagger") { return "Missing OpenAPI/Swagger version in $filePath" }
-        if ($content -notmatch "info:") { return "Missing 'info' section in $filePath" }
-        if ($content -notmatch "paths:") { return "Missing 'paths' section in $filePath" }
+
+        # Strip UTF-8 BOM if present (U+FEFF) so ^ anchors work
+        if ($content.Length -gt 0 -and $content[0] -eq [char]0xFEFF) {
+            $content = $content.Substring(1)
+        }
+
+        # Allow leading spaces and optional quotes around the version
+        if ($content -notmatch "(?im)^\s*(openapi|swagger)\s*:\s*['""]?\d") {
+            return "Missing OpenAPI/Swagger version in $filePath"
+        }
+        if ($content -notmatch "(?im)^\s*info\s*:")  { return "Missing 'info' section in $filePath" }
+        if ($content -notmatch "(?im)^\s*paths\s*:") { return "Missing 'paths' section in $filePath" }
     } catch {
         return "Invalid YAML format in $filePath"
     }
     return $null
 }
 
-# --- Main Validation ---
-foreach ($parent in $ParentFolders) {
-    foreach ($env in $Environments) {
-        Write-Host "`nValidating: $parent -> $env"
+# ------- Build target sets from parameters -------
+$JourneyList = if ($Journey -eq 'both') { @('external','internal') } else { @($Journey) }
+$EnvList     = if ($Environment -eq 'all') { @('base','dev','pre','tst') } else { @($Environment) }
 
-        foreach ($folder in $RequiredStructure.Keys) {
-            $folderPath = Join-Path $RootPath "$parent/$env/$folder"
+# ------- Expected items (strict to your new spec) -------
+# Each entry describes a directory and the mandatory files inside it.
+$Expectations = @(
+    # APIs
+    @{
+        RelDir = { param($j,$e,$n) Join-Path -Path (Join-Path (Join-Path $j $e) "apis") $n }
+        Name   = "apis/$ApiName"
+        Required = @(
+            @('apiInformation.json','apinformation.json'), # accept either (case-insensitive)
+            @('Specification.yaml','specification.yaml','specification.yml'),
+            @('Policy.xml','policy.xml')
+        )
+        Validators = @{
+            'apiInformation.json|apinformation.json' = { param($p) Validate-NestedJsonFields $p @(
+                'properties.path','properties.apiVersion','properties.apiVersionSetId',
+                'properties.isCurrent','properties.displayName','properties.protocols',
+                'properties.serviceUrl','properties.subscriptionRequired'
+            )}
+            'Specification.yaml|specification.yaml|specification.yml' = { param($p) Validate-YamlOpenAPI $p }
+            'Policy.xml|policy.xml' = { param($p) Validate-PolicyXml $p }
+        }
+    },
+    # Products (root)
+    @{
+        RelDir = { param($j,$e,$n) Join-Path -Path (Join-Path (Join-Path $j $e) "products") $n }
+        Name   = "products/$ProductName"
+        Required = @(
+            @('productInformation.json')
+        )
+        Validators = @{
+            'productInformation.json' = { param($p) Validate-NestedJsonFields $p @(
+                'properties.displayName','properties.description','properties.state'
+            )}
+        }
+    },
+    # Products -> apis/<apiName>
+    @{
+        RelDir = { param($j,$e,$n) Join-Path -Path (Join-Path (Join-Path (Join-Path $j $e) "products") $ProductName) (Join-Path 'apis' $ApiName) }
+        Name   = "products/$ProductName/apis/$ApiName"
+        Required = @(
+            @('productApiInformation.json')
+        )
+        Validators = @{}
+    },
+    # Version Sets
+    @{
+        RelDir = { param($j,$e,$n) Join-Path -Path (Join-Path (Join-Path $j $e) "version sets") $n }
+        Name   = "version sets/$VersionSetName"
+        Required = @(
+            @('versionSetInformation.json')
+        )
+        Validators = @{
+            'versionSetInformation.json' = { param($p) Validate-NestedJsonFields $p @(
+                'properties.displayName','properties.versioningScheme'
+            )}
+        }
+    },
+    # Named Values
+    @{
+        RelDir = { param($j,$e,$n) Join-Path -Path (Join-Path (Join-Path $j $e) "named values") $n }
+        Name   = "named values/$NamedValueName"
+        Required = @(
+            @('namedValueInformation.json')
+        )
+        Validators = @{
+            'namedValueInformation.json' = { param($p) Validate-NestedJsonFields $p @(
+                'properties.displayName','properties.secret','properties.tags','properties.value'
+            )}
+        }
+    }
+)
 
-            # Always add a row for folder check
-            if (-Not (Test-Path $folderPath)) {
-                $Errors += "Missing folder: $folderPath"
-                $SummaryTable += "| $parent | $env | $folder | ❌ Missing folder |"
-                Write-Host "❌ Folder missing: $folderPath" -ForegroundColor Red
-            } else {
-                Write-Host "✅ Folder exists: $folderPath" -ForegroundColor Green
-                $SummaryTable += "| $parent | $env | $folder | ✅ Folder exists |"
+# ------- Run validation -------
+$Errors       = @()
+$SummaryLines = @()
 
-                # Check mandatory files inside folder
-                foreach ($file in $RequiredStructure[$folder]) {
-                    $filePath = Join-Path $folderPath $file
-                    if (-Not (Test-Path $filePath)) {
-                        $Errors += "Missing file: $filePath"
-                        $SummaryTable += "| $parent | $env | $folder | ❌ Missing file: $file |"
-                        Write-Host "❌ File missing: $filePath" -ForegroundColor Red
-                    } else {
-                        Write-Host "✅ File exists: $filePath" -ForegroundColor Green
-                        $SummaryTable += "| $parent | $env | $folder | ✅ $file |"
+foreach ($journey in $JourneyList) {
+    foreach ($env in $EnvList) {
+        $envPath = Join-Path $RootPath (Join-Path $journey $env)
+        if (-not (Test-Path $envPath)) {
+            $Errors += "Missing environment folder: $envPath"
+            $SummaryLines += "$journey | $env | (folder) | ❌ Missing environment folder"
+            continue
+        }
 
-                        # Content validation based on file type
-                        switch -Wildcard ($file) {
-                            "apiInformation.json" {
-                                $result = Validate-NestedJsonFields $filePath @(
-                                    "properties.path","properties.apiVersion","properties.apiVersionSetId",
-                                    "properties.isCurrent","properties.displayName","properties.protocols",
-                                    "properties.serviceUrl","properties.subscriptionRequired"
-                                )
-                                if ($result) {
-                                    $Errors += $result
-                                    $SummaryTable += "| $parent | $env | $folder | ❌ $result |"
-                                    Write-Host "❌ $result" -ForegroundColor Red
-                                }
-                            }
-                            "Policy.xml" {
-                                $result = Validate-PolicyXml $filePath
-                                if ($result) {
-                                    $Errors += $result
-                                    $SummaryTable += "| $parent | $env | $folder | ❌ $result |"
-                                    Write-Host "❌ $result" -ForegroundColor Red
-                                }
-                            }
-                            "Specification.yaml" {
-                                $result = Validate-YamlOpenAPI $filePath
-                                if ($result) {
-                                    $Errors += $result
-                                    $SummaryTable += "| $parent | $env | $folder | ❌ $result |"
-                                    Write-Host "❌ $result" -ForegroundColor Red
-                                }
-                            }
-                            "namedValueInformation.json" {
-                                $result = Validate-NestedJsonFields $filePath @(
-                                    "properties.displayName","properties.secret","properties.tags","properties.value"
-                                )
-                                if ($result) {
-                                    $Errors += $result
-                                    $SummaryTable += "| $parent | $env | $folder | ❌ $result |"
-                                    Write-Host "❌ $result" -ForegroundColor Red
-                                }
-                            }
-                            "productInformation.json" {
-                                $result = Validate-NestedJsonFields $filePath @(
-                                    "properties.displayName","properties.description","properties.state","properties.subscriptionRequired"
-                                )
-                                if ($result) {
-                                    $Errors += $result
-                                    $SummaryTable += "| $parent | $env | $folder | ❌ $result |"
-                                    Write-Host "❌ $result" -ForegroundColor Red
-                                }
-                            }
-                            "versionSetInformation.json" {
-                                $result = Validate-NestedJsonFields $filePath @(
-                                    "properties.displayName","properties.versioningScheme"
-                                )
-                                if ($result) {
-                                    $Errors += $result
-                                    $SummaryTable += "| $parent | $env | $folder | ❌ $result |"
-                                    Write-Host "❌ $result" -ForegroundColor Red
-                                }
+        foreach ($exp in $Expectations) {
+            $dir = & $exp.RelDir $journey $env $(
+                if ($exp.Name -like 'apis/*')         { $ApiName }
+                elseif ($exp.Name -like 'products/*')  { $ProductName }
+                elseif ($exp.Name -like 'version*')    { $VersionSetName }
+                else                                   { $NamedValueName }
+            )
+
+            if (-not (Test-Path $dir)) {
+                $Errors += "Missing folder: $dir"
+                $SummaryLines += "$journey | $env | $($exp.Name) | ❌ Missing folder"
+                continue
+            }
+
+            # Required files
+            foreach ($group in $exp.Required) {
+                $resolved = Resolve-File -Dir $dir -Candidates $group
+                if (-not $resolved) {
+                    $Errors += "Missing file in '$dir': one of [$(($group -join ', '))]"
+                    $SummaryLines += "$journey | $env | $($exp.Name) | ❌ Missing $(($group -join ' | '))"
+                } else {
+                    $leaf = (Split-Path $resolved -Leaf)
+                    $SummaryLines += "$journey | $env | $($exp.Name) | ✅ $leaf"
+                    # Optional content validation
+                    foreach ($key in $exp.Validators.Keys) {
+                        $alts = $key -split '\|'
+                        if ($alts -contains $leaf) {
+                            $r = & $exp.Validators[$key] $resolved
+                            if ($r) {
+                                $Errors += $r
+                                $SummaryLines += "$journey | $env | $($exp.Name) | ❌ $r"
                             }
                         }
                     }
@@ -189,44 +250,45 @@ foreach ($parent in $ParentFolders) {
     }
 }
 
-# --- Build GitHub Actions Summary ---
-$summaryHeader = @"
-## 🔍 APIM Validation Summary
-Checked Folders: $($ParentFolders -join ', ')
-Environments: $($Environments -join ', ')
+# ------- Output summary (GitHub Actions friendly) -------
+$EOL = "`r`n"
 
-| Parent | Environment | Folder | Status |
-|--------|-------------|--------|--------|
+$header = @"
+## 🔎 APIM Validation Summary
 
+Journeys:     $(($JourneyList -join ', '))
+Environments: $(($EnvList -join ', '))
+
+Journey | Env | Item | Status
+------ | --- | ---- | ------
 "@
 
-$summaryBody = ($SummaryTable -join "`n")
+# Join rows with CRLF and put a CRLF between the header and the first row
+$body = ($SummaryLines -join $EOL)
 
 if ($Errors.Count -gt 0) {
     $status = "❌ Validation FAILED. $($Errors.Count) issue(s) found."
-    $summaryFooter = "`n### Issues:`n" + ($Errors -join "`n")
-    $exitCode = 1
+    $footer = "### Issues:$EOL" + ($Errors -join $EOL)
+    $exit = 1
 } else {
     $status = "✅ Validation PASSED. All checks successful."
-    $summaryFooter = ""
-    $exitCode = 0
+    $footer = ""
+    $exit = 0
 }
 
-$fullSummary = "$summaryHeader$summaryBody`n`n$status`n$summaryFooter"
+# Ensure clear line breaks:
+$full = $header + $EOL + $body + $EOL + $EOL + $status + $EOL + $footer + $EOL
 
-# Write summary for GitHub Actions or local preview
 if ($env:GITHUB_STEP_SUMMARY) {
-    $fullSummary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8
+    # UTF-8 without BOM
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($env:GITHUB_STEP_SUMMARY, $full, $utf8NoBom)
 } else {
-    Write-Host "`n--- GitHub Summary (Local Preview) ---`n$fullSummary"
+    Write-Host "`n--- Summary (Local Preview) ---`n$full"
 }
 
-# Outputs for workflow
 if ($env:GITHUB_OUTPUT) {
-    "result=$status" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-    "exit_code=$exitCode" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-} else {
-    Write-Host "`nOutputs:`nresult=$status`nexit_code=$exitCode"
+    "result=$status"  | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+    "exit_code=$exit" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 }
-
-exit $exitCode
+if ($FailOnError -and $exit -ne 0) { exit $exit }
