@@ -1,4 +1,4 @@
-# sps-apim-gateway-address-lookup (Address Lookup v10)
+# sps-apim-gateway-address-lookup (Address Lookup v10) - demo
 
 > ⚠️ **This repository contains under-development code and is used for self-service development purposes.**
 
